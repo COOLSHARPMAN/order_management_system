@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}系统设置{% endblock %}
+{% block page_title %}⚙️ 系统设置{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">👤 管理员信息</div>
+            <div class="card-body">
+                <form method="POST" action="/api/settings/profile">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">店铺名称</label>
+                        <input type="text" class="form-control" name="shop_name" value="{{ current_user.shop_name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">邮箱</label>
+                        <input type="email" class="form-control" name="email" value="{{ current_user.email or '' }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存设置</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">🔑 修改密码</div>
+            <div class="card-body">
+                <form method="POST" action="/api/settings/password">
+                    <div class="mb-3">
+                        <label class="form-label">当前密码</label>
+                        <input type="password" name="current_password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">新密码</label>
+                        <input type="password" name="new_password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">确认新密码</label>
+                        <input type="password" name="confirm_password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">修改密码</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">🏚️ 仓库管理</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">当前仓库</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for w in warehouses %}
+                        <span class="badge bg-light text-dark p-2 border">{{ w }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="新仓库名称" id="newWarehouse">
+                    <button class="btn btn-outline-primary" onclick="addWarehouse()">添加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">📊 数据管理</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-danger" onclick="if(confirm('确定要清除所有数据吗？此操作不可恢复！')) clearAllData()">
+                        <i class="bi bi-trash"></i> 清除所有数据
+                    </button>
+                    <button class="btn btn-outline-info" onclick="showToast('功能开发中...', 'info')">
+                        <i class="bi bi-download"></i> 数据备份
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">💡 使用技巧</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <h6><i class="bi bi-lightning-charge text-warning"></i> 快捷键</h6>
+                            <ul class="small mb-0">
+                                <li>双击商品快速添加</li>
+                                <li>右击表格查看更多</li>
+                                <li>Ctrl+S 快速保存</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <h6><i class="bi bi-robot text-info"></i> AI 功能</h6>
+                            <ul class="small mb-0">
+                                <li>配置 DeepSeek API 开启AI分析</li>
+                                <li>AI 自动生成补货建议</li>
+                                <li>AI 销售数据深度分析</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100">
+                            <h6><i class="bi bi-shop text-success"></i> 平台对接</h6>
+                            <ul class="small mb-0">
+                                <li>配置后自动同步订单</li>
+                                <li>库存实时同步到平台</li>
+                                <li>支持多平台同时管理</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function addWarehouse() {
+        const name = document.getElementById('newWarehouse').value.trim();
+        if (!name) {
+            showToast('请输入仓库名称', 'warning');
+            return;
+        }
+        showToast(`仓库"${name}"已添加（演示功能）`, 'success');
+        document.getElementById('newWarehouse').value = '';
+    }
+    
+    function clearAllData() {
+        $.ajax({
+            url: '/api/settings/clear_data',
+            method: 'POST',
+            success: function() {
+                showToast('所有数据已清除', 'success');
+                setTimeout(() => location.reload(), 1000);
+            }
+        });
+    }
+</script>
+{% endblock %}

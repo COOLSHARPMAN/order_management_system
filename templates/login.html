@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 电商订单库存管理系统</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .login-card h1 {
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .login-card .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+        }
+        .login-card .form-control {
+            padding: 12px 15px;
+            border-radius: 10px;
+        }
+        .login-card .btn-primary {
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            width: 100%;
+        }
+        .login-card .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+        .login-card .alert {
+            border-radius: 10px;
+        }
+        .demo-info {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1>📦 掌柜系统</h1>
+        <p class="subtitle">电商订单库存管理平台</p>
+        
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">用户名</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" name="username" class="form-control" placeholder="请输入用户名" required>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">密码</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" class="form-control" placeholder="请输入密码" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">登 录</button>
+        </form>
+        
+        <div class="demo-info">
+            <strong>💡 演示账号</strong><br>
+            用户名：<code>admin</code> ｜ 密码：<code>admin123</code>
+        </div>
+    </div>
+</body>
+</html>

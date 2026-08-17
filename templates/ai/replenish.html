@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}AI 智能补货建议{% endblock %}
+{% block page_title %}🤖 AI 智能补货建议{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-8">
+        <div class="alert alert-info mb-0">
+            <strong>💡 说明：</strong>
+            AI会根据商品库存、历史销量、安全库存等数据，智能分析给出补货建议。
+            {% if not ai_available %}
+            <br><strong class="text-warning">⚠️ 当前使用规则算法（未配置AI API）。如需AI深度分析，请在 .env 中配置 API Key。</strong>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <button class="btn btn-primary" onclick="generateSuggestions()">
+            <i class="bi bi-magic"></i> {% if ai_available %}AI 智能分析{% else %}生成补货建议{% endif %}
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between">
+        <span>📋 补货建议列表</span>
+        <span class="text-muted">共 {{ suggestions|length }} 条</span>
+    </div>
+    <div class="card-body p-0">
+        {% if suggestions %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>商品</th>
+                        <th>当前库存</th>
+                        <th>建议补货</th>
+                        <th>AI 分析理由</th>
+                        <th>生成时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in suggestions %}
+                    <tr>
+                        <td><strong>{{ s.product_name }}</strong></td>
+                        <td class="{% if s.current_stock < 10 %}text-danger fw-bold{% endif %}">{{ s.current_stock }}</td>
+                        <td class="fw-bold text-success">+{{ s.suggested_quantity }}</td>
+                        <td><small class="text-muted">{{ s.reason }}</small></td>
+                        <td><small>{{ s.created_at.strftime('%m-%d %H:%M') }}</small></td>
+                        <td>
+                            {% if s.status == 'pending' %}
+                            <span class="status-badge bg-warning bg-opacity-10 text-warning">待处理</span>
+                            {% elif s.status == 'applied' %}
+                            <span class="status-badge bg-success bg-opacity-10 text-success">已采纳</span>
+                            {% else %}
+                            <span class="status-badge bg-secondary bg-opacity-10 text-secondary">已忽略</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if s.status == 'pending' %}
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-success" onclick="applySuggestion({{ s.id }}, {{ s.product_id }}, {{ s.suggested_quantity }})">
+                                    采纳
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="ignoreSuggestion({{ s.id }})">
+                                    忽略
+                                </button>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-robot"></i>
+            <h5>暂无补货建议</h5>
+            <p class="text-muted">点击上方按钮生成补货建议</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function generateSuggestions() {
+        const btn = event.target.closest('button');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> 分析中...';
+        
+        $.post('/api/ai/generate_suggestions', function(res) {
+            showToast(res.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        }).fail(function() {
+            btn.innerHTML = '<i class="bi bi-magic"></i> 生成补货建议';
+            btn.disabled = false;
+        });
+    }
+    
+    function applySuggestion(suggestionId, productId, quantity) {
+        if (!confirm(`确定要执行补货操作吗？\n将入库 ${quantity} 件`)) return;
+        
+        $.ajax({
+            url: `/api/products/${productId}/stock`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ 
+                action: 'add', 
+                quantity: quantity,
+                remark: 'AI补货建议执行'
+            }),
+            success: function() {
+                showToast(`✅ 已采纳建议，入库 ${quantity} 件`);
+                location.reload();
+            }
+        });
+    }
+    
+    function ignoreSuggestion(suggestionId) {
+        $.post(`/api/ai/suggestion/${suggestionId}/ignore`, function() {
+            showToast('已忽略该建议');
+            location.reload();
+        });
+    }
+</script>
+{% endblock %}

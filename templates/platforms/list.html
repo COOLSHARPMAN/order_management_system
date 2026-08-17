@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}平台管理{% endblock %}
+{% block page_title %}🔗 平台管理{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- 淘宝 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 48px; margin-bottom: 15px;">🛒</div>
+                <h5>淘宝 / 天猫</h5>
+                <p class="text-muted small">对接淘宝开放平台，自动同步订单和库存</p>
+                <div class="mb-3">
+                    {% set tb = platforms|selectattr('code', 'equalto', 'taobao')|first %}
+                    {% if tb and tb.is_active %}
+                    <span class="status-badge bg-success bg-opacity-10 text-success">✅ 已配置</span>
+                    {% else %}
+                    <span class="status-badge bg-secondary bg-opacity-10 text-secondary">未配置</span>
+                    {% endif %}
+                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="showPlatformConfig('taobao', '淘宝/天猫')" data-bs-toggle="modal" data-bs-target="#platformModal">
+                    <i class="bi bi-gear"></i> 配置
+                </button>
+                {% if tb and tb.is_active %}
+                <button class="btn btn-outline-success btn-sm" onclick="syncOrders({{ tb.id }}, 'taobao')">
+                    <i class="bi bi-arrow-repeat"></i> 同步订单
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 1688 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 48px; margin-bottom: 15px;">🏭</div>
+                <h5>1688 批发</h5>
+                <p class="text-muted small">对接1688开放平台，同步采购订单和库存</p>
+                <div class="mb-3">
+                    {% set ali = platforms|selectattr('code', 'equalto', 'ali1688')|first %}
+                    {% if ali and ali.is_active %}
+                    <span class="status-badge bg-success bg-opacity-10 text-success">✅ 已配置</span>
+                    {% else %}
+                    <span class="status-badge bg-secondary bg-opacity-10 text-secondary">未配置</span>
+                    {% endif %}
+                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="showPlatformConfig('ali1688', '1688')" data-bs-toggle="modal" data-bs-target="#platformModal">
+                    <i class="bi bi-gear"></i> 配置
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 拼多多 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 48px; margin-bottom: 15px;">🛍️</div>
+                <h5>拼多多</h5>
+                <p class="text-muted small">对接拼多多开放平台，自动同步订单</p>
+                <div class="mb-3">
+                    {% set pdd = platforms|selectattr('code', 'equalto', 'pdd')|first %}
+                    {% if pdd and pdd.is_active %}
+                    <span class="status-badge bg-success bg-opacity-10 text-success">✅ 已配置</span>
+                    {% else %}
+                    <span class="status-badge bg-secondary bg-opacity-10 text-secondary">未配置</span>
+                    {% endif %}
+                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="showPlatformConfig('pdd', '拼多多')" data-bs-toggle="modal" data-bs-target="#platformModal">
+                    <i class="bi bi-gear"></i> 配置
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 抖音小店 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 48px; margin-bottom: 15px;">🎵</div>
+                <h5>抖音小店</h5>
+                <p class="text-muted small">对接抖音开放平台，同步订单和物流</p>
+                <div class="mb-3">
+                    {% set dd = platforms|selectattr('code', 'equalto', 'doudian')|first %}
+                    {% if dd and dd.is_active %}
+                    <span class="status-badge bg-success bg-opacity-10 text-success">✅ 已配置</span>
+                    {% else %}
+                    <span class="status-badge bg-secondary bg-opacity-10 text-secondary">未配置</span>
+                    {% endif %}
+                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="showPlatformConfig('doudian', '抖音小店')" data-bs-toggle="modal" data-bs-target="#platformModal">
+                    <i class="bi bi-gear"></i> 配置
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 手动录入 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 bg-light">
+            <div class="card-body text-center">
+                <div style="font-size: 48px; margin-bottom: 15px;">📝</div>
+                <h5>手动录入</h5>
+                <p class="text-muted small">无需配置，直接手动录入订单和库存</p>
+                <div class="mb-3">
+                    <span class="status-badge bg-success bg-opacity-10 text-success">✅ 默认可用</span>
+                </div>
+                <a href="{{ url_for('main.order_create') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> 新建订单
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 配置弹窗 -->
+<div class="modal fade" id="platformModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🔧 平台配置 - <span id="platformModalTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="platformForm">
+                    <input type="hidden" name="code" id="platformCode">
+                    <input type="hidden" name="name" id="platformName">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">App Key <span class="text-danger">*</span></label>
+                        <input type="text" name="app_key" class="form-control" required>
+                        <small class="text-muted">在开放平台申请的应用Key</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">App Secret <span class="text-danger">*</span></label>
+                        <input type="password" name="app_secret" class="form-control" required>
+                        <small class="text-muted">对应的应用密钥</small>
+                    </div>
+                </form>
+                <div class="alert alert-info small">
+                    <strong>💡 如何获取？</strong><br>
+                    1. 登录对应平台的开放平台<br>
+                    2. 创建应用，获取 AppKey 和 AppSecret<br>
+                    3. 填写到上方输入框中
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="savePlatform()">保存配置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showPlatformConfig(code, name) {
+        document.getElementById('platformModalTitle').textContent = name;
+        document.getElementById('platformCode').value = code;
+        document.getElementById('platformName').value = name;
+        document.getElementById('platformForm').reset();
+    }
+    
+    function savePlatform() {
+        const data = {
+            code: document.getElementById('platformCode').value,
+            name: document.getElementById('platformName').value,
+            app_key: document.querySelector('[name="app_key"]').value,
+            app_secret: document.querySelector('[name="app_secret"]').value
+        };
+        
+        $.ajax({
+            url: '/api/platforms/save',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                showToast('配置保存成功！');
+                $('#platformModal').modal('hide');
+                setTimeout(() => location.reload(), 500);
+            }
+        });
+    }
+    
+    function syncOrders(platformId, platformName) {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> 同步中...';
+        
+        $.ajax({
+            url: `/api/platforms/${platformId}/sync_orders`,
+            method: 'POST',
+            success: function(res) {
+                showToast(res.message, res.success ? 'success' : 'warning');
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 同步订单';
+                btn.disabled = false;
+            },
+            error: function() {
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 同步订单';
+                btn.disabled = false;
+            }
+        });
+    }
+</script>
+{% endblock %}

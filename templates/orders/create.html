@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}新建订单{% endblock %}
+{% block page_title %}➕ 新建订单{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">📋 订单信息</div>
+            <div class="card-body">
+                <form method="POST" id="orderForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">买家姓名 <span class="text-danger">*</span></label>
+                            <input type="text" name="buyer_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">买家电话</label>
+                            <input type="text" name="buyer_phone" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">收货地址</label>
+                        <textarea name="buyer_address" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">商品总价</label>
+                            <input type="number" name="total_amount" class="form-control" step="0.01" value="0" id="totalAmount">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">运费</label>
+                            <input type="number" name="freight_amount" class="form-control" step="0.01" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">优惠金额</label>
+                            <input type="number" name="discount_amount" class="form-control" step="0.01" value="0">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">实付金额</label>
+                        <input type="number" name="actual_amount" class="form-control" step="0.01" value="0" id="actualAmount">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">买家备注</label>
+                        <textarea name="buyer_note" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">卖家备注</label>
+                        <textarea name="seller_note" class="form-control" rows="2"></textarea>
+                    </div>
+                    
+                    <hr>
+                    <h6 class="fw-bold mb-3">🛒 商品明细</h6>
+                    
+                    <div id="itemsContainer">
+                        <div class="item-row row g-2 mb-2">
+                            <div class="col-md-5">
+                                <select class="form-select product-select" required>
+                                    <option value="">选择商品</option>
+                                    {% for p in products %}
+                                    <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.sell_price }}">
+                                        {{ p.name }} (¥{{ "%.2f"|format(p.sell_price) }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control item-qty" placeholder="数量" value="1" min="1">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" class="form-control item-price" placeholder="单价" step="0.01">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-danger" onclick="removeItem(this)"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-outline-primary btn-sm mb-3" onclick="addItem()">
+                        <i class="bi bi-plus"></i> 添加商品
+                    </button>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> 提交订单
+                        </button>
+                        <a href="{{ url_for('main.order_list') }}" class="btn btn-outline-secondary">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">📦 可用商品</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                    {% for p in products %}
+                    <div class="list-group-item list-group-item-action" onclick="quickAdd({{ p.id }}, '{{ p.name }}', {{ p.sell_price }})">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>{{ p.name }}</strong><br>
+                                <small class="text-muted">SKU: {{ p.sku or '-' }}</small>
+                            </div>
+                            <div class="text-end">
+                                <div>¥{{ "%.2f"|format(p.sell_price) }}</div>
+                                <small class="text-muted">库存: {% set s = p.stocks|first %}{{ s.quantity if s else 0 }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let itemCount = 1;
+    
+    function addItem(productId = '', productName = '', productPrice = '') {
+        const container = document.getElementById('itemsContainer');
+        const firstRow = container.querySelector('.item-row');
+        const row = firstRow.cloneNode(true);
+        
+        row.querySelectorAll('input').forEach(inp => inp.value = '');
+        row.querySelector('.item-qty').value = 1;
+        
+        if (productId) {
+            row.querySelector('.product-select').value = productId;
+            row.querySelector('.item-price').value = productPrice;
+        }
+        
+        container.appendChild(row);
+    }
+    
+    function removeItem(btn) {
+        const rows = document.querySelectorAll('.item-row');
+        if (rows.length > 1) {
+            btn.closest('.item-row').remove();
+        } else {
+            showToast('至少保留一个商品', 'warning');
+        }
+    }
+    
+    function quickAdd(id, name, price) {
+        // 找是否有空行
+        let added = false;
+        document.querySelectorAll('.product-select').forEach(sel => {
+            if (!sel.value && !added) {
+                sel.value = id;
+                sel.closest('.item-row').querySelector('.item-price').value = price;
+                added = true;
+            }
+        });
+        if (!added) {
+            addItem(id, name, price);
+        }
+        showToast(`已添加: ${name}`);
+    }
+    
+    document.getElementById('orderForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const items = [];
+        document.querySelectorAll('.item-row').forEach(row => {
+            const productId = row.querySelector('.product-select').value;
+            const qty = row.querySelector('.item-qty').value;
+            const price = row.querySelector('.item-price').value;
+            if (productId && qty) {
+                items.push({
+                    product_id: parseInt(productId),
+                    quantity: parseInt(qty),
+                    price: parseFloat(price) || 0
+                });
+            }
+        });
+        
+        if (items.length === 0) {
+            showToast('请至少添加一个商品', 'warning');
+            return;
+        }
+        
+        const formData = new FormData(this);
+        formData.set('items', JSON.stringify(items));
+        
+        $.ajax({
+            url: this.action,
+            method: this.method,
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                showToast('订单创建成功！');
+                setTimeout(() => window.location.href = '/orders', 1000);
+            },
+            error: function(xhr) {
+                showToast('创建失败: ' + (xhr.responseJSON?.error || '未知错误'), 'danger');
+            }
+        });
+    });
+</script>
+{% endblock %}

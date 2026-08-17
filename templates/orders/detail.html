@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}订单详情 - {{ order.order_no }}{% endblock %}
+{% block page_title %}📄 订单详情 #{{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <span>📋 订单信息</span>
+                <span>
+                    {% set status_map = {
+                        'pending': ('warning', '待处理'),
+                        'paid': ('info', '已付款'),
+                        'shipped': ('primary', '已发货'),
+                        'completed': ('success', '已完成'),
+                        'cancelled': ('secondary', '已取消')
+                    } %}
+                    {% set badge = status_map.get(order.status, ('secondary', order.status)) %}
+                    <span class="status-badge bg-{{ badge[0] }} bg-opacity-10 text-{{ badge[0] }}">{{ badge[1] }}</span>
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td style="width:100px">订单号</td><td><strong>{{ order.order_no }}</strong></td></tr>
+                            <tr><td>平台</td><td>{{ order.platform_name or '手动录入' }}</td></tr>
+                            <tr><td>下单时间</td><td>{{ order.order_time.strftime('%Y-%m-%d %H:%M:%S') if order.order_time else '-' }}</td></tr>
+                            <tr><td>付款时间</td><td>{{ order.pay_time.strftime('%Y-%m-%d %H:%M:%S') if order.pay_time else '-' }}</td></tr>
+                            <tr><td>发货时间</td><td>{{ order.ship_time.strftime('%Y-%m-%d %H:%M:%S') if order.ship_time else '-' }}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td style="width:100px">买家</td><td><strong>{{ order.buyer_name or '-' }}</strong></td></tr>
+                            <tr><td>电话</td><td>{{ order.buyer_phone or '-' }}</td></tr>
+                            <tr><td>地址</td><td>{{ order.buyer_address or '-' }}</td></tr>
+                            <tr><td>快递单号</td><td>{{ order.tracking_no or '未发货' }}</td></tr>
+                            <tr><td>卖家备注</td><td>{{ order.seller_note or '-' }}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <h6 class="fw-bold mb-3">商品明细</h6>
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>商品名称</th>
+                            <th>SKU</th>
+                            <th>数量</th>
+                            <th>单价</th>
+                            <th>小计</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items %}
+                        <tr>
+                            <td>{{ item.product_name }}</td>
+                            <td>{{ item.product_sku }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>¥{{ "%.2f"|format(item.price) }}</td>
+                            <td>¥{{ "%.2f"|format(item.total_price) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end">商品总价：</td>
+                            <td>¥{{ "%.2f"|format(order.total_amount) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end">运费：</td>
+                            <td>¥{{ "%.2f"|format(order.freight_amount) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end">优惠：</td>
+                            <td>-¥{{ "%.2f"|format(order.discount_amount) }}</td>
+                        </tr>
+                        <tr class="table-primary">
+                            <td colspan="4" class="text-end fw-bold">实付金额：</td>
+                            <td class="fw-bold">¥{{ "%.2f"|format(order.actual_amount) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-4">
+        <!-- 操作面板 -->
+        <div class="card">
+            <div class="card-header">⚡ 操作</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if order.status == 'pending' or order.status == 'paid' %}
+                    <button class="btn btn-success" onclick="shipOrder()">
+                        <i class="bi bi-truck"></i> 发货
+                    </button>
+                    {% endif %}
+                    {% if order.status != 'cancelled' and order.status != 'completed' %}
+                    <button class="btn btn-danger" onclick="cancelOrder()">
+                        <i class="bi bi-x-circle"></i> 取消订单
+                    </button>
+                    {% endif %}
+                    <button class="btn btn-outline-primary" onclick="printOrder()">
+                        <i class="bi bi-printer"></i> 打印
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 买家备注 -->
+        {% if order.buyer_note %}
+        <div class="card">
+            <div class="card-header">💬 买家备注</div>
+            <div class="card-body">
+                <p class="mb-0">{{ order.buyer_note }}</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 库存检查 -->
+        <div class="card">
+            <div class="card-header">📦 库存检查</div>
+            <div class="card-body">
+                <button class="btn btn-outline-info btn-sm w-100" onclick="checkStock()">
+                    <i class="bi bi-search"></i> 检查库存是否充足
+                </button>
+                <div id="stockResult" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function shipOrder() {
+        const trackingNo = prompt('请输入快递单号：');
+        if (!trackingNo) return;
+        
+        $.ajax({
+            url: `/api/orders/{{ order.id }}/status`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ 
+                status: 'shipped', 
+                shipping_status: 'shipped',
+                tracking_no: trackingNo 
+            }),
+            success: function() {
+                showToast('发货成功！');
+                location.reload();
+            }
+        });
+    }
+    
+    function cancelOrder() {
+        if (!confirm('确定要取消此订单吗？')) return;
+        
+        $.ajax({
+            url: `/api/orders/{{ order.id }}/status`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ status: 'cancelled' }),
+            success: function() {
+                showToast('订单已取消');
+                location.reload();
+            }
+        });
+    }
+    
+    function printOrder() {
+        window.print();
+    }
+    
+    function checkStock() {
+        $.get('/api/orders/{{ order.id }}/check_stock', function(data) {
+            const div = $('#stockResult');
+            if (data.shortage.length === 0) {
+                div.html('<div class="alert alert-success py-2 mb-0">✅ 库存充足</div>');
+            } else {
+                let html = '<div class="alert alert-danger py-2 mb-0">❌ 库存不足：';
+                data.shortage.forEach(item => {
+                    html += `<br>${item.product_name}: 缺${item.shortage}件`;
+                });
+                html += '</div>';
+                div.html(html);
+            }
+        });
+    }
+</script>
+{% endblock %}

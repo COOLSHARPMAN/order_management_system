@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}订单列表{% endblock %}
+{% block page_title %}📋 订单列表{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('main.order_list') }}" class="btn btn-sm {% if not status %}btn-primary{% else %}btn-outline-secondary{% endif %}">全部</a>
+            <a href="{{ url_for('main.order_list') }}?status=pending" class="btn btn-sm {% if status == 'pending' %}btn-warning{% else %}btn-outline-secondary{% endif %}">待处理</a>
+            <a href="{{ url_for('main.order_list') }}?status=paid" class="btn btn-sm {% if status == 'paid' %}btn-success{% else %}btn-outline-secondary{% endif %}">已付款</a>
+            <a href="{{ url_for('main.order_list') }}?status=shipped" class="btn btn-sm {% if status == 'shipped' %}btn-info{% else %}btn-outline-secondary{% endif %}">已发货</a>
+            <a href="{{ url_for('main.order_list') }}?status=completed" class="btn btn-sm {% if status == 'completed' %}btn-success{% else %}btn-outline-secondary{% endif %}">已完成</a>
+            <a href="{{ url_for('main.order_list') }}?status=cancelled" class="btn btn-sm {% if status == 'cancelled' %}btn-danger{% else %}btn-outline-secondary{% endif %}">已取消</a>
+        </div>
+        <div class="d-flex gap-2">
+            <form class="search-box" method="GET">
+                <div class="input-group input-group-sm">
+                    <input type="text" name="keyword" class="form-control" placeholder="搜索订单号/买家" value="{{ keyword }}">
+                    <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+                </div>
+            </form>
+            <a href="{{ url_for('main.order_create') }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus"></i> 新建
+            </a>
+            <button class="btn btn-sm btn-success" onclick="exportOrders()">
+                <i class="bi bi-download"></i> 导出
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;"><input type="checkbox" id="selectAll"></th>
+                        <th>订单号/平台</th>
+                        <th>买家</th>
+                        <th>商品</th>
+                        <th>金额</th>
+                        <th>状态</th>
+                        <th>下单时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders.items %}
+                    <tr>
+                        <td><input type="checkbox" class="order-checkbox" value="{{ order.id }}"></td>
+                        <td>
+                            <strong>{{ order.order_no }}</strong><br>
+                            <small class="text-muted">{{ order.platform_name }}</small>
+                        </td>
+                        <td>
+                            {{ order.buyer_name or '-' }}<br>
+                            <small class="text-muted">{{ order.buyer_phone or '' }}</small>
+                        </td>
+                        <td>
+                            {% for item in order.items[:2] %}
+                            <small>{{ item.product_name }} x{{ item.quantity }}</small><br>
+                            {% endfor %}
+                            {% if order.items|length > 2 %}
+                            <small class="text-muted">...等{{ order.items|length }}件商品</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>¥{{ "%.2f"|format(order.actual_amount) }}</strong>
+                        </td>
+                        <td>
+                            {% set status_map = {
+                                'pending': ('warning', '待处理'),
+                                'paid': ('info', '已付款'),
+                                'shipped': ('primary', '已发货'),
+                                'completed': ('success', '已完成'),
+                                'cancelled': ('secondary', '已取消')
+                            } %}
+                            {% set badge = status_map.get(order.status, ('secondary', order.status)) %}
+                            <span class="status-badge bg-{{ badge[0] }} bg-opacity-10 text-{{ badge[0] }}">{{ badge[1] }}</span>
+                            {% if order.shipping_status == 'shipped' %}
+                            <br><small class="text-info">快递: {{ order.tracking_no or '待录入' }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ order.order_time.strftime('%m-%d %H:%M') if order.order_time else '-' }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('main.order_detail', order_id=order.id) }}" class="btn btn-outline-primary" title="查看详情"><i class="bi bi-eye"></i></a>
+                                <button class="btn btn-outline-success" onclick="shipOrder({{ order.id }})" title="发货" {% if order.status != 'paid' %}disabled{% endif %}><i class="bi bi-truck"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox"></i>
+                                <h5>暂无订单</h5>
+                                <p class="text-muted">点击右上角"新建"创建第一笔订单</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% if orders.pages > 1 %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% for p in range(1, orders.pages + 1) %}
+                <li class="page-item {% if p == orders.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&status={{ status }}&keyword={{ keyword }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // 全选/反选
+    document.getElementById('selectAll').addEventListener('change', function() {
+        document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = this.checked);
+    });
+    
+    // 导出订单
+    function exportOrders() {
+        const ids = Array.from(document.querySelectorAll('.order-checkbox:checked')).map(cb => parseInt(cb.value));
+        if (ids.length === 0) {
+            showToast('请先选择要导出的订单', 'warning');
+            return;
+        }
+        
+        $.ajax({
+            url: '/orders/export',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ order_ids: ids }),
+            xhrFields: { responseType: 'blob' },
+            success: function(data) {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(data);
+                a.download = `订单导出_${new Date().toISOString().slice(0,10)}.xlsx`;
+                a.click();
+                showToast('导出成功');
+            }
+        });
+    }
+    
+    // 发货
+    function shipOrder(orderId) {
+        const trackingNo = prompt('请输入快递单号：');
+        if (!trackingNo) return;
+        
+        $.ajax({
+            url: `/api/orders/${orderId}/status`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ 
+                status: 'shipped', 
+                shipping_status: 'shipped',
+                tracking_no: trackingNo 
+            }),
+            success: function() {
+                showToast('发货成功！');
+                location.reload();
+            }
+        });
+    }
+</script>
+{% endblock %}

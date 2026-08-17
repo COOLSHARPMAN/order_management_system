@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}控制台 - 电商订单库存管理系统{% endblock %}
+{% block page_title %}📊 控制台{% endblock %}
+
+{% block content %}
+<!-- 统计卡片 -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-primary position-relative">
+            <i class="bi bi-cart-check stat-icon"></i>
+            <div class="stat-value">{{ stats.today_orders }}</div>
+            <div class="stat-label">今日订单</div>
+            <small class="opacity-75">累计: {{ stats.total_orders }} 单</small>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-success position-relative">
+            <i class="bi bi-cash-coin stat-icon"></i>
+            <div class="stat-value">¥{{ "%.0f"|format(stats.today_amount) }}</div>
+            <div class="stat-label">今日销售额</div>
+            <small class="opacity-75">本月: ¥{{ "%.0f"|format(stats.month_amount) }}</small>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-warning position-relative">
+            <i class="bi bi-box-seam stat-icon"></i>
+            <div class="stat-value">{{ stats.unshipped_orders }}</div>
+            <div class="stat-label">待发货</div>
+            <small class="opacity-75">共 {{ stats.pending_orders }} 单待处理</small>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-danger position-relative">
+            <i class="bi bi-exclamation-triangle stat-icon"></i>
+            <div class="stat-value">{{ stock_status.low_stock_count }}</div>
+            <div class="stat-label">库存预警</div>
+            <small class="opacity-75">商品低于安全库存</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- 订单趋势图 -->
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>📈 近7天订单趋势</span>
+                <small class="text-muted">订单量 / 销售额</small>
+            </div>
+            <div class="card-body">
+                <div id="orderChart" style="height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 库存预警 -->
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header">
+                ⚠️ 库存预警商品
+            </div>
+            <div class="card-body">
+                {% if stock_status.low_stock_products %}
+                <div class="list-group list-group-flush">
+                    {% for p in stock_status.low_stock_products %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <div class="fw-bold">{{ p.name }}</div>
+                            <small class="text-muted">SKU: {{ p.sku }}</small>
+                        </div>
+                        <span class="badge bg-danger rounded-pill">{{ p.stock }}件</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-check-circle text-success"></i>
+                    <p class="mb-0">暂无库存预警商品</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <!-- 快速操作 -->
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header">⚡ 快捷操作</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('main.order_create') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> 新建订单
+                    </a>
+                    <a href="{{ url_for('main.product_create') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-box"></i> 添加商品
+                    </a>
+                    <button class="btn btn-outline-info" onclick="aiReplenish()">
+                        <i class="bi bi-robot"></i> AI 补货分析
+                    </button>
+                    <a href="{{ url_for('main.order_list') }}?status=pending" class="btn btn-outline-warning">
+                        <i class="bi bi-clock"></i> 查看待处理订单
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 系统状态 -->
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header">🔌 系统状态</div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <span>AI 智能服务</span>
+                    <span class="badge {% if ai_available %}bg-success{% else %}bg-warning text-dark{% endif %} float-end">
+                        {{ '🟢 已连接' if ai_available else '🟡 未配置' }}
+                    </span>
+                </div>
+                <div class="mb-2">
+                    <span>数据库</span>
+                    <span class="badge bg-success float-end">✅ 正常运行</span>
+                </div>
+                <div class="mb-2">
+                    <span>商品总数</span>
+                    <span class="badge bg-info float-end">{{ stock_status.total_products }} 个</span>
+                </div>
+                <div class="mb-2">
+                    <span>库存总价值</span>
+                    <span class="badge bg-primary float-end">¥{{ "%.2f"|format(stock_status.total_value) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 使用提示 -->
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header">💡 新手引导</div>
+            <div class="card-body">
+                <ol class="mb-0" style="padding-left: 18px;">
+                    <li class="mb-2">📦 先在 <a href="{{ url_for('main.product_create') }}">商品管理</a> 添加商品</li>
+                    <li class="mb-2">📋 在 <a href="{{ url_for('main.order_create') }}">订单管理</a> 录入订单</li>
+                    <li class="mb-2">📊 在 <a href="{{ url_for('main.inventory') }}">库存管理</a> 管理库存</li>
+                    <li class="mb-2">🤖 使用 <a href="{{ url_for('main.ai_replenish') }}">AI 补货建议</a> 智能分析</li>
+                    <li class="mb-2">🔗 对接 <a href="{{ url_for('main.platforms') }}">电商平台</a> 自动同步</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 订单趋势图
+    const dailyStats = {{ stats.daily_stats | tojson }};
+    const chart = echarts.init(document.getElementById('orderChart'));
+    
+    const option = {
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' }
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'category',
+            data: dailyStats.map(d => d.date),
+            boundaryGap: false
+        },
+        yAxis: [
+            { type: 'value', name: '订单量' },
+            { type: 'value', name: '销售额(元)' }
+        ],
+        series: [
+            {
+                name: '订单量',
+                type: 'line',
+                data: dailyStats.map(d => d.count),
+                smooth: true,
+                lineStyle: { color: '#4e73df', width: 3 },
+                itemStyle: { color: '#4e73df' },
+                areaStyle: { color: 'rgba(78,115,223,0.1)' }
+            },
+            {
+                name: '销售额',
+                type: 'bar',
+                yAxisIndex: 1,
+                data: dailyStats.map(d => d.amount),
+                itemStyle: { 
+                    color: '#1cc88a',
+                    borderRadius: [4, 4, 0, 0]
+                }
+            }
+        ]
+    };
+    chart.setOption(option);
+    window.addEventListener('resize', () => chart.resize());
+    
+    // AI 补货
+    function aiReplenish() {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> 分析中...';
+        
+        $.post('/api/ai/generate_suggestions', function(res) {
+            showToast(res.message, 'success');
+            btn.innerHTML = '<i class="bi bi-robot"></i> AI 补货分析';
+            btn.disabled = false;
+        }).fail(function() {
+            btn.innerHTML = '<i class="bi bi-robot"></i> AI 补货分析';
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}
